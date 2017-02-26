@@ -1,5 +1,13 @@
 #include "correct/convolutional/lookup.h"
 
+static inline unsigned int hweight32(unsigned int w)
+{
+	unsigned int res = w - ((w >> 1) & 0x55555555);
+	res = (res & 0x33333333) + ((res >> 2) & 0x33333333);
+	res = (res + (res >> 4)) & 0x0F0F0F0F;
+	return (res * 0x01010101) >> 24;
+}
+
 // table has numstates rows
 // each row contains all of the polynomial output bits concatenated together
 // e.g. for rate 2, we have 2 bits in each row
@@ -12,7 +20,7 @@ void fill_table(unsigned int rate,
         unsigned int out = 0;
         unsigned int mask = 1;
         for (size_t j = 0; j < rate; j++) {
-            out |= (__builtin_popcount(i & poly[j]) % 2) ? mask : 0;
+            out |= (hweight32(i & poly[j]) % 2) ? mask : 0;
             mask <<= 1;
         }
         table[i] = out;

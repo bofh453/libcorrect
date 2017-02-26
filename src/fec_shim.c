@@ -1,63 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
-
 #include "fec_shim.h"
-
-typedef struct {
-    correct_reed_solomon *rs;
-    unsigned int msg_length;
-    unsigned int block_length;
-    unsigned int num_roots;
-    uint8_t *msg_out;
-    unsigned int pad;
-    uint8_t *erasures;
-} reed_solomon_shim;
-
-void *init_rs_char(int symbol_size, int primitive_polynomial,
-                   int first_consecutive_root, int root_gap, int number_roots,
-                   unsigned int pad) {
-    if (symbol_size != 8) {
-        return NULL;
-    }
-
-    reed_solomon_shim *shim = malloc(sizeof(reed_solomon_shim));
-
-    shim->pad = pad;
-    shim->block_length = 255 - pad;
-    shim->num_roots = number_roots;
-    shim->msg_length = shim->block_length - number_roots;
-    shim->rs = correct_reed_solomon_create(primitive_polynomial,
-                                           first_consecutive_root, root_gap, number_roots);
-    shim->msg_out = malloc(shim->block_length);
-    shim->erasures = malloc(number_roots);
-
-    return shim;
-}
-
-void free_rs_char(void *rs) {
-    reed_solomon_shim *shim = (reed_solomon_shim *)rs;
-    correct_reed_solomon_destroy(shim->rs);
-    free(shim->msg_out);
-    free(shim->erasures);
-    free(shim);
-}
-
-void encode_rs_char(void *rs, const unsigned char *msg, unsigned char *parity) {
-    reed_solomon_shim *shim = (reed_solomon_shim *)rs;
-    correct_reed_solomon_encode(shim->rs, msg, shim->msg_length, shim->msg_out);
-    memcpy(parity, shim->msg_out + shim->msg_length, shim->num_roots);
-}
-
-void decode_rs_char(void *rs, unsigned char *block, int *erasure_locations,
-                    int num_erasures) {
-    reed_solomon_shim *shim = (reed_solomon_shim *)rs;
-    for (int i = 0; i < num_erasures; i++) {
-        shim->erasures[i] = (uint8_t)(erasure_locations[i]) - shim->pad;
-    }
-    correct_reed_solomon_decode_with_erasures(shim->rs, block, shim->block_length,
-                                              shim->erasures, num_erasures,
-                                              block);
-}
 
 typedef struct {
     correct_convolutional *conv;
