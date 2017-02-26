@@ -1,4 +1,6 @@
+#include <stdint.h>
 #include "correct/util/error-sim.h"
+unsigned int c = 0xdeadbeef;
 
 size_t distance(uint8_t *a, uint8_t *b, size_t len) {
     size_t dist = 0;
@@ -11,16 +13,24 @@ size_t distance(uint8_t *a, uint8_t *b, size_t len) {
     return dist;
 }
 
+unsigned int xorshift32(unsigned int *c) {
+    unsigned int x = *c;
+    x ^= x >> 13; // a
+    x ^= x <<  5; // b
+    x ^= x >> 19; // c
+    x = x * 747796405U;
+    *c = x;
+    return x;
+}
+
 void gaussian(double *res, size_t n_res, double sigma) {
     for (size_t i = 0; i < n_res; i += 2) {
         // compute using polar method of box muller
         double s, u, v;
         while (true) {
-            u = (double)(rand())/(double)RAND_MAX;
-            v = (double)(rand())/(double)RAND_MAX;
-
-            s = pow(u, 2.0) + pow(v, 2.0);
-
+            u = (double)(xorshift32(&c))/(double)UINT32_MAX;
+            v = (double)(xorshift32(&c))/(double)UINT32_MAX;
+            s = (u*u) + (v*v);
             if (s > DBL_EPSILON && s < 1) {
                 break;
             }
@@ -88,11 +98,11 @@ void decode_bpsk_soft(double *voltages, uint8_t *soft, size_t n_syms, double bps
 }
 
 double log2amp(double l) {
-    return pow(10.0, l/10.0);
+    return exp(M_LN10 * 0.1 * l);
 }
 
 double amp2log(double a) {
-    return 10.0 * log10(a);
+    return 10.0 * M_LOG10E * log(a);
 }
 
 double sigma_for_eb_n0(double eb_n0, double bpsk_bit_energy) {
@@ -181,3 +191,4 @@ void conv_correct_encode(void *conv_v, uint8_t *msg, size_t msg_len, uint8_t *en
 void conv_correct_decode(void *conv_v, uint8_t *soft, size_t soft_len, uint8_t *msg) {
     correct_convolutional_decode_soft((correct_convolutional *)conv_v, soft, soft_len, msg);
 }
+
